@@ -1,7 +1,7 @@
 import requests
 import smtplib
 from email.message import EmailMessage
-from datetime import datetime
+from datetime import datetime, timedelta
 import schedule
 import time
 import os
@@ -37,18 +37,30 @@ def send_email(subject, body):
         smtp.send_message(msg)
         print("✅ Email sent!")
 
+def game_start_email(game_time, opponent):
+    send_email("The Red Sox are ON NOW!", f"The Red Sox game against {opponent} is starting now!")
+    print(f"Sent game start reminder for {opponent} at {datetime.now().strftime('%I:%M %p')}")
+
 def daily_task():
     print("Running daily Red Sox check...")
     has_game, game_time, opponent = get_redsox_game()
     if has_game:
         send_email("Red Sox Play TODAY!", f"Red Sox play at {game_time.strftime('%I:%M %p')} against {opponent}.")
+
+        now = datetime.now()
+        delay = (game_time + timedelta(minutes=5)) - now
+        seconds = delay.total_seconds()
+
+        if seconds > 0:
+            print(f"Scheduling game start email in {int(seconds)} seconds")
+            schedule.every(seconds).seconds.do(game_start_email, game_time=game_time, opponent=opponent)
+        else:
+            print("Game already started or starting soon — not scheduling game start email")
     else:
-        send_email("No Sox Game Today :(")
+        send_email("No Sox Game Today...")
 
-# Schedule to run daily at 9:00 AM (Render uses UTC)
-schedule.every().day.at("13:00").do(daily_task)  # 9 AM Eastern = 13:00 UTC
+schedule.every().day.at("13:00").do(daily_task)  
 
-# Keep the service running
 while True:
     schedule.run_pending()
     time.sleep(60)
