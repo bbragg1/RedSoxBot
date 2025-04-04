@@ -6,6 +6,8 @@ import schedule
 import time
 import os
 from dotenv import load_dotenv
+import pytz
+
 
 load_dotenv()
 
@@ -16,13 +18,16 @@ def get_redsox_game():
     url = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/2/schedule"
     response = requests.get(url)
     data = response.json()
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(pytz.timezone("US/Eastern")).strftime("%Y-%m-%d")
 
     for event in data['events']:
         if today in event['date']:
-            game_time = event['date']
+            utc_time = datetime.fromisoformat(event['date'].replace("Z", "+00:00"))
+            eastern = pytz.timezone("US/Eastern")
+            game_time = utc_time.astimezone(eastern)
+
             opponent = event['name'].replace("Boston Red Sox vs ", "").replace(" vs Boston Red Sox", "")
-            return True, datetime.fromisoformat(game_time), opponent
+            return True, game_time, opponent
     return False, None, None
 
 def send_email(subject, body):
