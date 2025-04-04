@@ -40,7 +40,7 @@ def send_email(subject, body):
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
         smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
         smtp.send_message(msg)
-        print("✅ Email sent!")
+        print("Email sent!")
 
 def game_start_email(game_time, opponent):
     send_email("The Red Sox are ON NOW!", f"The Red Sox game against {opponent} is starting now!")
