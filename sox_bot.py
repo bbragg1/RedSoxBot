@@ -67,10 +67,6 @@ def daily_task():
 
 schedule.every().day.at("13:00").do(daily_task)  
 
-while True:
-    schedule.run_pending()
-    time.sleep(60)
-
 PORT = int(os.environ.get("PORT", 10000))
 
 class KeepAliveHandler(BaseHTTPRequestHandler):
@@ -83,4 +79,9 @@ def run_server():
     server = HTTPServer(('0.0.0.0', PORT), KeepAliveHandler)
     server.serve_forever()
 
-threading.Thread(target=run_server).start()
+threading.Thread(target=run_server, daemon=True).start()
+
+while True:
+    schedule.run_pending()
+    time.sleep(60)
+
