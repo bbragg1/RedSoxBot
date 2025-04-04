@@ -7,7 +7,8 @@ import time
 import os
 from dotenv import load_dotenv
 import pytz
-
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 load_dotenv()
 
@@ -69,3 +70,17 @@ schedule.every().day.at("13:00").do(daily_task)
 while True:
     schedule.run_pending()
     time.sleep(60)
+
+PORT = int(os.environ.get("PORT", 10000))
+
+class KeepAliveHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"I'm alive!")
+
+def run_server():
+    server = HTTPServer(('0.0.0.0', PORT), KeepAliveHandler)
+    server.serve_forever()
+
+threading.Thread(target=run_server).start()
