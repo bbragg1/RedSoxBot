@@ -353,8 +353,36 @@ def daily_task():
         send_email("Red Sox Bot — Error", f"daily_task failed:\n{e}")
 
 
+def postgame_task():
+    try:
+        data = fetch_schedule()
+        events = data.get("events", [])
+        record = get_team_record(events)
+
+        today = datetime.now(EASTERN).date()
+        for event in events:
+            event_date = datetime.fromisoformat(event["date"].replace("Z", "+00:00")).astimezone(EASTERN).date()
+            if event_date != today:
+                continue
+            state = event.get("status", {}).get("type", {}).get("state", "")
+            if state != "post":
+                return  # game not final yet, exit silently
+            summary = fetch_summary(event["id"])
+            boxscore = parse_boxscore(summary)
+            outcome = "W" if boxscore["won"] else "L"
+            subject = f"Red Sox Final: {outcome} {boxscore['sox_score']}-{boxscore['opp_score']} vs {boxscore['opponent']}"
+            send_email(subject, format_recap(boxscore, record))
+            return
+    except Exception as e:
+        send_email("Red Sox Bot — Post-game Error", f"postgame_task failed:\n{e}")
+
+
 if "--now" in sys.argv:
     daily_task()
+    sys.exit(0)
+
+if "--postgame" in sys.argv:
+    postgame_task()
     sys.exit(0)
 
 schedule.every().day.at("13:00").do(daily_task)

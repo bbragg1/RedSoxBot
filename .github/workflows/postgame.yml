@@ -1,0 +1,22 @@
+name: Red Sox Post-Game Summary
+
+on:
+  schedule:
+    - cron: '0 5 * * *'  # 5 AM UTC = 1 AM ET (EDT) / midnight ET (EST)
+  workflow_dispatch:      # trigger manually to test
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: python sox_bot.py --postgame
+        env:
+          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
