@@ -1,5 +1,6 @@
 import requests
 import smtplib
+import sys
 from email.message import EmailMessage
 from datetime import datetime, timedelta
 import json
@@ -351,6 +352,10 @@ def daily_task():
     except Exception as e:
         send_email("Red Sox Bot — Error", f"daily_task failed:\n{e}")
 
+
+if "--now" in sys.argv:
+    daily_task()
+    sys.exit(0)
 
 schedule.every().day.at("13:00").do(daily_task)
 
