@@ -360,13 +360,14 @@ def postgame_task():
         record = get_team_record(events)
 
         today = datetime.now(EASTERN).date()
+        yesterday = today - timedelta(days=1)
         for event in events:
             event_date = datetime.fromisoformat(event["date"].replace("Z", "+00:00")).astimezone(EASTERN).date()
-            if event_date != today:
+            if event_date not in (today, yesterday):
                 continue
             state = event.get("status", {}).get("type", {}).get("state", "")
             if state != "post":
-                return  # game not final yet, exit silently
+                continue
             summary = fetch_summary(event["id"])
             boxscore = parse_boxscore(summary)
             outcome = "W" if boxscore["won"] else "L"
