@@ -172,17 +172,20 @@ def parse_boxscore(summary):
     # Player stats — ESPN puts individual players under "players", not "teams"
     boxscore = summary.get("boxscore", {})
     player_teams = boxscore.get("players", []) or boxscore.get("teams", [])
-    print(f"  boxscore keys: {list(boxscore.keys())}")
-    print(f"  player_teams count: {len(player_teams)}")
     for team_box in player_teams:
-        team_id = str(team_box.get("team", {}).get("id", ""))
-        print(f"  team_id in boxscore: {team_id!r}")
-        if team_id != REDSOX_ID:
+        if str(team_box.get("team", {}).get("id", "")) != REDSOX_ID:
             continue
         for category in team_box.get("statistics", []):
-            cat = category.get("name", "")
             keys = category.get("keys", []) or category.get("labels", [])
-            print(f"  category: {cat}, keys: {keys[:5]}, athletes: {len(category.get('athletes', []))}")
+
+            # ESPN doesn't reliably name categories — detect by keys present
+            if "atBats" in keys or "hits-atBats" in keys:
+                cat = "batting"
+            elif "earnedRuns" in keys or "fullInnings.partInnings" in keys:
+                cat = "pitching"
+            else:
+                continue
+
             for entry in category.get("athletes", []):
                 athlete = entry.get("athlete", {})
                 stats = entry.get("stats", [])
@@ -194,12 +197,11 @@ def parse_boxscore(summary):
                 }
                 if cat == "batting":
                     result["batting"].append(player)
-                    hrs = stat_dict.get("HR", stat_dict.get("homeRuns", "0"))
+                    hrs = stat_dict.get("homeRuns", stat_dict.get("HR", "0"))
                     if _safe_int(hrs) > 0:
                         result["hr_leaders"].append(f"{player['name']} ({hrs} HR)")
                 elif cat == "pitching":
                     result["pitching"].append(player)
-    print(f"  batting players found: {len(result['batting'])}, pitching: {len(result['pitching'])}")
 
     # Winning / losing / save pitchers from game notes
     for note in summary.get("notes", []):
@@ -245,17 +247,17 @@ def format_recap(boxscore, record):
     # Batting highlights: 2+ hits or 2+ RBI
     highlights = [
         p for p in boxscore["batting"]
-        if _safe_int(p.get("H", p.get("hits", "0"))) >= 2
-        or _safe_int(p.get("RBI", "0")) >= 2
+        if _safe_int(p.get("hits", p.get("H", "0"))) >= 2
+        or _safe_int(p.get("RBIs", p.get("RBI", "0"))) >= 2
     ]
     if highlights:
         lines.append("Batting Highlights:")
         for p in highlights[:6]:
-            h   = p.get("H",   p.get("hits",         "?"))
-            ab  = p.get("AB",  p.get("atBats",        "?"))
-            rbi = p.get("RBI", "0")
-            hr  = p.get("HR",  p.get("homeRuns",      "0"))
-            bb  = p.get("BB",  p.get("baseOnBalls",   "0"))
+            h   = p.get("hits",        p.get("H",   "?"))
+            ab  = p.get("atBats",      p.get("AB",  "?"))
+            rbi = p.get("RBIs",        p.get("RBI", "0"))
+            hr  = p.get("homeRuns",    p.get("HR",  "0"))
+            bb  = p.get("baseOnBalls", p.get("BB",  "0"))
             detail = f"{h}/{ab}"
             extras = []
             if _safe_int(hr)  > 0: extras.append(f"{hr} HR")
@@ -268,12 +270,12 @@ def format_recap(boxscore, record):
 
     # Starting pitcher line
     if boxscore["pitching"]:
-        sp  = boxscore["pitching"][0]
-        ip  = sp.get("IP",  sp.get("inningsPitched", "?"))
-        h   = sp.get("H",   sp.get("hits",           "?"))
-        er  = sp.get("ER",  sp.get("earnedRuns",     "?"))
-        k   = sp.get("SO",  sp.get("strikeOuts",     "?"))
-        bb  = sp.get("BB",  sp.get("baseOnBalls",    "?"))
+        sp = boxscore["pitching"][0]
+        ip = sp.get("fullInnings.partInnings", sp.get("IP", "?"))
+        h  = sp.get("hits",        sp.get("H",  "?"))
+        er = sp.get("earnedRuns",  sp.get("ER", "?"))
+        k  = sp.get("strikeOuts",  sp.get("SO", "?"))
+        bb = sp.get("walks",       sp.get("BB", "?"))
         lines.append(f"Starting Pitcher — {sp['name']}: {ip} IP, {h} H, {er} ER, {k} K, {bb} BB")
 
     return "\n".join(lines)
