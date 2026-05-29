@@ -161,7 +161,7 @@ def parse_boxscore(summary):
     # Scores and winner
     for comp in summary.get("header", {}).get("competitions", []):
         for c in comp.get("competitors", []):
-            team_id = c.get("team", {}).get("id", "")
+            team_id = str(c.get("team", {}).get("id", ""))
             if team_id == REDSOX_ID:
                 result["sox_score"] = c.get("score", "?")
                 result["won"] = c.get("winner", False)
@@ -171,11 +171,11 @@ def parse_boxscore(summary):
 
     # Player stats
     for team_box in summary.get("boxscore", {}).get("teams", []):
-        if team_box.get("team", {}).get("id") != REDSOX_ID:
+        if str(team_box.get("team", {}).get("id", "")) != REDSOX_ID:
             continue
         for category in team_box.get("statistics", []):
             cat = category.get("name", "")
-            keys = category.get("keys", [])
+            keys = category.get("keys", []) or category.get("labels", [])
             for entry in category.get("athletes", []):
                 athlete = entry.get("athlete", {})
                 stats = entry.get("stats", [])
