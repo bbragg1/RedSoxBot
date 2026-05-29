@@ -202,6 +202,8 @@ def parse_boxscore(summary):
                         result["hr_leaders"].append(f"{player['name']} ({hrs} HR)")
                 elif cat == "pitching":
                     result["pitching"].append(player)
+                    if len(result["pitching"]) == 1:
+                        print(f"  SP keys: {list(player.keys())}")
 
     # Winning / losing / save pitchers from game notes
     for note in summary.get("notes", []):
