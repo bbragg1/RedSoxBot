@@ -202,8 +202,6 @@ def parse_boxscore(summary):
                         result["hr_leaders"].append(f"{player['name']} ({hrs} HR)")
                 elif cat == "pitching":
                     result["pitching"].append(player)
-                    if len(result["pitching"]) == 1:
-                        print(f"  SP keys: {list(player.keys())}")
 
     # Winning / losing / save pitchers from game notes
     for note in summary.get("notes", []):
@@ -276,7 +274,7 @@ def format_recap(boxscore, record):
         ip = sp.get("fullInnings.partInnings", sp.get("IP", "?"))
         h  = sp.get("hits",        sp.get("H",  "?"))
         er = sp.get("earnedRuns",  sp.get("ER", "?"))
-        k  = sp.get("strikeOuts",  sp.get("SO", "?"))
+        k  = sp.get("strikeouts",  sp.get("SO", "?"))
         bb = sp.get("walks",       sp.get("BB", "?"))
         lines.append(f"Starting Pitcher — {sp['name']}: {ip} IP, {h} H, {er} ER, {k} K, {bb} BB")
 
@@ -377,16 +375,12 @@ def postgame_task():
         today = datetime.now(EASTERN).date()
         yesterday = today - timedelta(days=1)
 
-        print(f"Running postgame check. Today (ET): {today}, checking {yesterday} and {today}")
-
         sched_data = fetch_schedule()
         record = get_team_record(sched_data.get("events", []))
 
         for check_date in (yesterday, today):
             board = fetch_scoreboard(check_date)
             events = board.get("events", [])
-            print(f"  {check_date}: {len(events)} total MLB games")
-
             for event in events:
                 comp = event["competitions"][0]
                 competitors = comp.get("competitors", [])
@@ -396,10 +390,7 @@ def postgame_task():
                     continue
 
                 state = event.get("status", {}).get("type", {}).get("state", "")
-                print(f"  Found Red Sox game on {check_date}: state={state}, id={event['id']}")
-
                 if state != "post":
-                    print("  Game not final yet, skipping")
                     continue
 
                 summary = fetch_summary(event["id"])
@@ -407,10 +398,7 @@ def postgame_task():
                 outcome = "W" if boxscore["won"] else "L"
                 subject = f"Red Sox Final: {outcome} {boxscore['sox_score']}-{boxscore['opp_score']} vs {boxscore['opponent']}"
                 send_email(subject, format_recap(boxscore, record))
-                print("  Email sent.")
                 return
-
-        print("  No completed Red Sox game found on either date.")
 
     except Exception as e:
         print(f"postgame_task error: {e}")
