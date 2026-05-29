@@ -169,13 +169,20 @@ def parse_boxscore(summary):
                 result["opp_score"] = c.get("score", "?")
                 result["opponent"] = c.get("team", {}).get("displayName", "?")
 
-    # Player stats
-    for team_box in summary.get("boxscore", {}).get("teams", []):
-        if str(team_box.get("team", {}).get("id", "")) != REDSOX_ID:
+    # Player stats — ESPN puts individual players under "players", not "teams"
+    boxscore = summary.get("boxscore", {})
+    player_teams = boxscore.get("players", []) or boxscore.get("teams", [])
+    print(f"  boxscore keys: {list(boxscore.keys())}")
+    print(f"  player_teams count: {len(player_teams)}")
+    for team_box in player_teams:
+        team_id = str(team_box.get("team", {}).get("id", ""))
+        print(f"  team_id in boxscore: {team_id!r}")
+        if team_id != REDSOX_ID:
             continue
         for category in team_box.get("statistics", []):
             cat = category.get("name", "")
             keys = category.get("keys", []) or category.get("labels", [])
+            print(f"  category: {cat}, keys: {keys[:5]}, athletes: {len(category.get('athletes', []))}")
             for entry in category.get("athletes", []):
                 athlete = entry.get("athlete", {})
                 stats = entry.get("stats", [])
@@ -192,6 +199,7 @@ def parse_boxscore(summary):
                         result["hr_leaders"].append(f"{player['name']} ({hrs} HR)")
                 elif cat == "pitching":
                     result["pitching"].append(player)
+    print(f"  batting players found: {len(result['batting'])}, pitching: {len(result['pitching'])}")
 
     # Winning / losing / save pitchers from game notes
     for note in summary.get("notes", []):
