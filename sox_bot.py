@@ -23,6 +23,7 @@ EASTERN = pytz.timezone("US/Eastern")
 
 ESPN_SCHEDULE_URL = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/{REDSOX_ID}/schedule"
 ESPN_SUMMARY_URL = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary"
+ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard"
 
 
 # ── Data storage ──────────────────────────────────────────────────────────────
@@ -53,6 +54,12 @@ def fetch_schedule():
 
 def fetch_summary(event_id):
     r = requests.get(ESPN_SUMMARY_URL, params={"event": event_id}, timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+
+def fetch_scoreboard(date):
+    r = requests.get(ESPN_SCOREBOARD_URL, params={"dates": date.strftime("%Y%m%d")}, timeout=10)
     r.raise_for_status()
     return r.json()
 
@@ -355,26 +362,46 @@ def daily_task():
 
 def postgame_task():
     try:
-        data = fetch_schedule()
-        events = data.get("events", [])
-        record = get_team_record(events)
-
         today = datetime.now(EASTERN).date()
         yesterday = today - timedelta(days=1)
-        for event in events:
-            event_date = datetime.fromisoformat(event["date"].replace("Z", "+00:00")).astimezone(EASTERN).date()
-            if event_date not in (today, yesterday):
-                continue
-            state = event.get("status", {}).get("type", {}).get("state", "")
-            if state != "post":
-                continue
-            summary = fetch_summary(event["id"])
-            boxscore = parse_boxscore(summary)
-            outcome = "W" if boxscore["won"] else "L"
-            subject = f"Red Sox Final: {outcome} {boxscore['sox_score']}-{boxscore['opp_score']} vs {boxscore['opponent']}"
-            send_email(subject, format_recap(boxscore, record))
-            return
+
+        print(f"Running postgame check. Today (ET): {today}, checking {yesterday} and {today}")
+
+        sched_data = fetch_schedule()
+        record = get_team_record(sched_data.get("events", []))
+
+        for check_date in (yesterday, today):
+            board = fetch_scoreboard(check_date)
+            events = board.get("events", [])
+            print(f"  {check_date}: {len(events)} total MLB games")
+
+            for event in events:
+                comp = event["competitions"][0]
+                competitors = comp.get("competitors", [])
+                team_ids = [c.get("team", {}).get("id") for c in competitors]
+
+                if REDSOX_ID not in team_ids:
+                    continue
+
+                state = event.get("status", {}).get("type", {}).get("state", "")
+                print(f"  Found Red Sox game on {check_date}: state={state}, id={event['id']}")
+
+                if state != "post":
+                    print("  Game not final yet, skipping")
+                    continue
+
+                summary = fetch_summary(event["id"])
+                boxscore = parse_boxscore(summary)
+                outcome = "W" if boxscore["won"] else "L"
+                subject = f"Red Sox Final: {outcome} {boxscore['sox_score']}-{boxscore['opp_score']} vs {boxscore['opponent']}"
+                send_email(subject, format_recap(boxscore, record))
+                print("  Email sent.")
+                return
+
+        print("  No completed Red Sox game found on either date.")
+
     except Exception as e:
+        print(f"postgame_task error: {e}")
         send_email("Red Sox Bot — Post-game Error", f"postgame_task failed:\n{e}")
 
 
